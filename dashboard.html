@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S&P 500 Market Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #07090f;
+    --panel:     #0e1220;
+    --panel2:    #131928;
+    --border:    #1e2d47;
+    --green:     #00c896;
+    --green-dim: #00785a;
+    --red:       #ff4466;
+    --red-dim:   #8c1f33;
+    --yellow:    #f5c842;
+    --blue:      #4a90e2;
+    --text:      #c8d6f0;
+    --muted:     #5e7094;
+    --head:      #e8f0ff;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ── Header ── */
+  .topbar {
+    background: linear-gradient(135deg, #0b1528 0%, #0e1e35 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--head);
+    letter-spacing: .4px;
+  }
+  .topbar h1 span { color: var(--blue); }
+  .topbar .meta {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.7;
+  }
+  .topbar .meta strong { color: var(--text); }
+
+  /* ── Layout ── */
+  .page { max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 28px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g5 { grid-template-columns: repeat(5, 1fr); }
+  .g-split { grid-template-columns: 380px 1fr; }
+  .g-split3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+  }
+  .card.green-accent::before  { background: var(--green); }
+  .card.red-accent::before    { background: var(--red); }
+  .card.yellow-accent::before { background: var(--yellow); }
+  .card.blue-accent::before   { background: var(--blue); }
+  .card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .card-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+  .card-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--yellow); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge.pos { background: rgba(0,200,150,.12); color: var(--green); }
+  .badge.neg { background: rgba(255,68,102,.12); color: var(--red); }
+
+  /* ── Chart container ── */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  /* ── Sector bar section ── */
+  #sectorBars { height: 340px; }
+  #spyLine    { height: 240px; }
+
+  /* ── Heatmap table ── */
+  .hm-wrap { overflow-x: auto; }
+  .hm-table {
+    border-collapse: collapse;
+    min-width: 640px;
+    width: 100%;
+    font-size: 10.5px;
+  }
+  .hm-table th, .hm-table td {
+    text-align: center;
+    padding: 7px 5px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .hm-table th {
+    background: var(--panel2);
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: .5px;
+    font-size: 10px;
+  }
+  .hm-table td.row-header {
+    background: var(--panel2);
+    color: var(--text);
+    font-weight: 700;
+    text-align: right;
+    padding-right: 10px;
+    font-size: 10px;
+  }
+  .hm-table td.diag {
+    background: #1a2035;
+    color: var(--muted);
+    font-size: 9px;
+  }
+
+  /* ── Sector detail table ── */
+  .dt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .dt-table thead th {
+    background: var(--panel2);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .dt-table tbody tr {
+    border-bottom: 1px solid rgba(30,45,71,.6);
+    transition: background .15s;
+  }
+  .dt-table tbody tr:hover { background: rgba(255,255,255,.025); }
+  .dt-table tbody td {
+    padding: 8px 12px;
+    color: var(--text);
+  }
+  .dt-table .rank {
+    color: var(--muted);
+    font-size: 11px;
+    width: 28px;
+  }
+  .dt-table .sym {
+    font-weight: 700;
+    color: var(--head);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+  }
+  .dt-table .sector-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    background: rgba(74,144,226,.12);
+    color: #6ab0f5;
+  }
+
+  /* ── Inline bar ── */
+  .inline-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inline-bar {
+    height: 6px;
+    border-radius: 3px;
+    min-width: 2px;
+  }
+
+  /* ── Legend dot ── */
+  .ldot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  /* ── Scrollable company panel ── */
+  .company-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .company-card {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .company-card .cc-sector {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 6px;
+  }
+  .company-card .cc-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--head);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .company-card .cc-sym {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── SPY stat row ── */
+  .spy-stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .spy-stat { text-align: center; }
+  .spy-stat .lbl { font-size: 10px; color: var(--muted); font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+  .spy-stat .val { font-size: 22px; font-weight: 800; line-height: 1.1; }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: default;
+  }
+  .tooltip .tt {
+    visibility: hidden;
+    opacity: 0;
+    background: #1a2540;
+    border: 1px solid var(--border);
+    color: var(--text);
+    text-align: center;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    position: absolute;
+    z-index: 10;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: opacity .15s;
+  }
+  .tooltip:hover .tt { visibility: visible; opacity: 1; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .g-split, .g2, .g3 { grid-template-columns: 1fr; }
+    .g4, .g5 { grid-template-columns: 1fr 1fr; }
+    .page { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ HEADER ═══════════════════════════════════ -->
+<header class="topbar">
+  <div>
+    <h1>S&amp;P 500 <span>Market Intelligence</span> Dashboard</h1>
+    <div style="font-size:11px;color:var(--muted);margin-top:3px;">
+      SPDR S&amp;P 500 ETF (SPY) &nbsp;·&nbsp; Sector ETF Analysis &nbsp;·&nbsp; Correlation Dynamics
+    </div>
+  </div>
+  <div class="meta">
+    <strong>As of 20 March 2026</strong><br>
+    Data: 1-Year window (Mar 2025 – Mar 2026)<br>
+    Sectors via SPDR Select Sector ETFs
+  </div>
+</header>
+
+<div class="page">
+
+<!-- ═══════════════════════ SECTION 1: INDEX OVERVIEW ═══════════════════════════ -->
+<div class="section-title">S&amp;P 500 Index Performance — SPY</div>
+
+<div class="grid g-split">
+  <!-- KPI cards -->
+  <div>
+    <div class="grid g3" style="margin-bottom:16px;">
+      <div class="card red-accent">
+        <div class="card-label">Year-to-Date</div>
+        <div class="card-value neg">−4.74%</div>
+        <div class="card-sub">Jan 1 – Mar 20, 2026</div>
+      </div>
+      <div class="card green-accent">
+        <div class="card-label">1-Year Return</div>
+        <div class="card-value pos">+13.34%</div>
+        <div class="card-sub">Mar 2025 – Mar 2026</div>
+      </div>
+      <div class="card red-accent">
+        <div class="card-label">1-Month Return</div>
+        <div class="card-value neg">−5.84%</div>
+        <div class="card-sub">Feb 20 – Mar 20, 2026</div>
+      </div>
+    </div>
+
+    <!-- Performance interpretation -->
+    <div class="card" style="font-size:12px;line-height:1.8;color:var(--text);">
+      <div class="card-label" style="margin-bottom:10px;">Market Narrative</div>
+      <p style="margin-bottom:8px;">
+        The S&amp;P 500 delivered a <strong class="pos">+13.34% return</strong> over the trailing 12 months,
+        demonstrating broad market resilience. However, 2026 YTD performance has reversed sharply
+        to <strong class="neg">−4.74%</strong>, with the index losing
+        <strong class="neg">−5.84%</strong> in March alone — signalling meaningful short-term
+        deterioration in market sentiment.
+      </p>
+      <p style="color:var(--muted);font-size:11px;">
+        The divergence between the strong 1-year return and the negative YTD/1-month moves suggests
+        a late-cycle correction phase, with rotation into defensive sectors visible in the sector data.
+      </p>
+    </div>
+  </div>
+
+  <!-- Line chart -->
+  <div class="card">
+    <div class="card-label" style="margin-bottom:12px;">
+      Cumulative Return — 1 Year &nbsp;
+      <span class="badge neg">YTD −4.74%</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="spyLine"></canvas>
+    </div>
+  </div>
+</div><!-- end g-split -->
+
+
+<!-- ═══════════════════════ SECTION 2: SECTOR RANKINGS ══════════════════════════ -->
+<div class="section-title">Sector Rankings — Year-to-Date Return (2026)</div>
+
+<div class="grid g-split" style="grid-template-columns: 1fr 440px;">
+
+  <!-- Bar chart -->
+  <div class="card">
+    <div class="card-label" style="margin-bottom:14px;">YTD Total Return by Sector (ranked)</div>
+    <div class="chart-wrap">
+      <canvas id="sectorBars"></canvas>
+    </div>
+  </div>
+
+  <!-- Sector ranking table -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table class="dt-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>ETF</th>
+          <th>Sector</th>
+          <th style="text-align:right">YTD Return</th>
+          <th>Trend</th>
+        </tr>
+      </thead>
+      <tbody id="sectorRankBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SECTION 3: TOP COMPANIES BY SECTOR ══════════════════ -->
+<div class="section-title">Top Holdings by Sector</div>
+<div class="card" style="margin-bottom:4px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <span class="card-label" style="margin:0;">S&amp;P 500 Companies — Grouped by GICS Sector</span>
+    <span style="font-size:10px;color:var(--muted);">
+      ⚠ Individual company 1-month / 1-year return data not included in the provided data files.
+      Showing representative constituents per sector.
+    </span>
+  </div>
+
+  <!-- Sector filter tabs -->
+  <div id="sectorTabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
+
+  <!-- Company table -->
+  <table class="dt-table" id="companyTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Symbol</th>
+        <th>Company</th>
+        <th>Sector</th>
+        <th>Sub-Industry</th>
+        <th>HQ</th>
+        <th>Founded</th>
+        <th style="text-align:right">Sector YTD Return</th>
+      </tr>
+    </thead>
+    <tbody id="companyBody"></tbody>
+  </table>
+  <div id="showMoreWrap" style="text-align:center;margin-top:12px;">
+    <button id="showMoreBtn"
+      style="background:var(--panel2);border:1px solid var(--border);color:var(--text);
+             padding:7px 22px;border-radius:5px;cursor:pointer;font-size:11px;">
+      Show more companies
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SECTION 4: CORRELATION ANALYSIS ══════════════════════ -->
+<div class="section-title">Sector Correlation Analysis</div>
+
+<div class="grid g2">
+
+  <!-- Correlation changes heatmap -->
+  <div class="card">
+    <div class="card-label" style="margin-bottom:4px;">Correlation Changes vs. 1 Year Ago</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:14px;">
+      Delta between current and prior-year pairwise return correlations.
+      <span class="ldot" style="background:var(--green)"></span>Increased correlation &nbsp;
+      <span class="ldot" style="background:var(--red)"></span>Decreased correlation
+    </div>
+    <div class="hm-wrap">
+      <table class="hm-table" id="corrChangeTable"></table>
+    </div>
+  </div>
+
+  <!-- Interpretation panel -->
+  <div class="card">
+    <div class="card-label" style="margin-bottom:12px;">Correlation Shift Insights</div>
+    <div id="corrInsights" style="font-size:12px;line-height:1.9;color:var(--text);"></div>
+
+    <div style="margin-top:20px;">
+      <div class="card-label" style="margin-bottom:10px;">Largest Correlation Increases</div>
+      <table class="dt-table" id="corrTopPos">
+        <thead>
+          <tr><th>Pair</th><th>Sector A</th><th>Sector B</th><th style="text-align:right">Δ Corr</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="card-label" style="margin-bottom:10px;">Largest Correlation Decreases</div>
+      <table class="dt-table" id="corrTopNeg">
+        <thead>
+          <tr><th>Pair</th><th>Sector A</th><th>Sector B</th><th style="text-align:right">Δ Corr</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- end g2 -->
+
+
+<!-- ══════════════════════════ FOOTER ══════════════════════════════════════════ -->
+<div style="margin-top:36px;padding-top:16px;border-top:1px solid var(--border);
+            display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+  <div style="font-size:10px;color:var(--muted);">
+    Data sources: S&amp;P 500 daily returns (SPY), SPDR Sector ETF YTD returns, GICS sector correlation
+    changes, S&amp;P 500 constituent table. &nbsp;·&nbsp;
+    Sector ETFs: XLB XLC XLE XLF XLI XLK XLP XLRE XLU XLV XLY
+  </div>
+  <div style="font-size:10px;color:var(--muted);">
+    ⚠ For informational purposes only. Not investment advice.
+  </div>
+</div>
+
+</div><!-- end .page -->
+
+
+<!-- ══════════════════════════ SCRIPTS ════════════════════════════════════════ -->
+<script>
+
+/* ─────────────────────────────────── DATA ─────────────────────────────────── */
+
+const SECTOR_META = {
+  XLB:  { name: 'Materials',             shortName: 'Materials',         color: '#a78bfa' },
+  XLC:  { name: 'Communication Services',shortName: 'Comm. Services',    color: '#60a5fa' },
+  XLE:  { name: 'Energy',                shortName: 'Energy',            color: '#f59e0b' },
+  XLF:  { name: 'Financials',            shortName: 'Financials',        color: '#34d399' },
+  XLI:  { name: 'Industrials',           shortName: 'Industrials',       color: '#6ee7b7' },
+  XLK:  { name: 'Information Technology',shortName: 'Info Technology',   color: '#4a90e2' },
+  XLP:  { name: 'Consumer Staples',      shortName: 'Cons. Staples',     color: '#fbbf24' },
+  XLRE: { name: 'Real Estate',           shortName: 'Real Estate',       color: '#f87171' },
+  XLU:  { name: 'Utilities',             shortName: 'Utilities',         color: '#fb923c' },
+  XLV:  { name: 'Health Care',           shortName: 'Health Care',       color: '#e879f9' },
+  XLY:  { name: 'Consumer Discretionary',shortName: 'Cons. Disc.',       color: '#94a3b8' },
+};
+
+const SECTOR_YTD = {
+  XLB: 0.1636, XLC: 0.0028, XLE: 0.2237, XLF: -0.0629,
+  XLI: 0.1327, XLK: -0.0369, XLP: 0.1473, XLRE: 0.0830,
+  XLU: 0.1116, XLV: 0.0343, XLY: -0.0216
+};
+
+const SP500_RETURNS = { ytd: -0.04741, year: 0.13340, month: -0.05837 };
+
+// Daily SPY returns 2025-03-25 → 2026-03-20
+const DAILY_RAW = [
+["2025-03-25",0.002403882],["2025-03-26",-0.011938340],["2025-03-27",-0.002655752],
+["2025-03-28",-0.020138286],["2025-03-31",0.006712884],["2025-04-01",0.002824469],
+["2025-04-02",0.006328324],["2025-04-03",-0.049280916],["2025-04-04",-0.058542793],
+["2025-04-07",-0.001781193],["2025-04-08",-0.015662836],["2025-04-09",0.105019350],
+["2025-04-10",-0.043818994],["2025-04-11",0.017842706],["2025-04-14",0.009701437],
+["2025-04-15",-0.002800810],["2025-04-16",-0.022228033],["2025-04-17",0.001426809],
+["2025-04-21",-0.023802644],["2025-04-22",0.026017697],["2025-04-23",0.015495356],
+["2025-04-24",0.021049020],["2025-04-25",0.007225378],["2025-04-28",0.000381302],
+["2025-04-29",0.006299340],["2025-04-30",0.000396924],["2025-05-01",0.007086804],
+["2025-05-02",0.014844352],["2025-05-05",-0.005734512],["2025-05-06",-0.008358322],
+["2025-05-07",0.004205548],["2025-05-08",0.006967680],["2025-05-09",-0.001274006],
+["2025-05-12",0.033047398],["2025-05-13",0.006603940],["2025-05-14",0.001277954],
+["2025-05-15",0.004884342],["2025-05-16",0.006334078],["2025-05-19",0.001093814],
+["2025-05-20",-0.003362232],["2025-05-21",-0.016850795],["2025-05-22",0.000394753],
+["2025-05-23",-0.006825781],["2025-05-27",0.020790668],["2025-05-28",-0.005785414],
+["2025-05-29",0.003947277],["2025-05-30",-0.001118352],["2025-06-02",0.005632901],
+["2025-06-03",0.005702486],["2025-06-04",-0.000268444],["2025-06-05",-0.004832769],
+["2025-06-06",0.010268980],["2025-06-09",0.000901283],["2025-06-10",0.005669665],
+["2025-06-11",-0.002851915],["2025-06-12",0.003974226],["2025-06-13",-0.011179962],
+["2025-06-16",0.009514092],["2025-06-17",-0.008545135],["2025-06-18",-0.000150636],
+["2025-06-20",-0.002348433],["2025-06-23",0.009877376],["2025-06-24",0.011047209],
+["2025-06-25",0.000560365],["2025-06-26",0.007823780],["2025-06-27",0.004968332],
+["2025-06-30",0.004781206],["2025-07-01",-0.000323580],["2025-07-02",0.004533376],
+["2025-07-03",0.007881385],["2025-07-07",-0.007452213],["2025-07-08",-0.000547617],
+["2025-07-09",0.005996627],["2025-07-10",0.002820212],["2025-07-11",-0.003515228],
+["2025-07-14",0.001908117],["2025-07-15",-0.004273265],["2025-07-16",0.003343191],
+["2025-07-17",0.006119690],["2025-07-18",-0.000732413],["2025-07-21",0.001896175],
+["2025-07-22",0.000143121],["2025-07-23",0.008507443],["2025-07-24",0.000331150],
+["2025-07-25",0.004224350],["2025-07-28",-0.000251100],["2025-07-29",-0.002637649],
+["2025-07-30",-0.001259331],["2025-07-31",-0.003751227],["2025-08-01",-0.016390467],
+["2025-08-04",0.015199913],["2025-08-05",-0.005069966],["2025-08-06",0.007659581],
+["2025-08-07",-0.000837527],["2025-08-08",0.007797475],["2025-08-11",-0.001977443],
+["2025-08-12",0.010646018],["2025-08-13",0.003423147],["2025-08-14",0.000092965],
+["2025-08-15",-0.002341290],["2025-08-18",-0.000217440],["2025-08-19",-0.005425225],
+["2025-08-20",-0.002657084],["2025-08-21",-0.004011726],["2025-08-22",0.015356788],
+["2025-08-25",-0.004401062],["2025-08-26",0.004186940],["2025-08-27",0.002278513],
+["2025-08-28",0.003541363],["2025-08-29",-0.005963682],["2025-09-02",-0.007410200],
+["2025-09-03",0.005419463],["2025-09-04",0.008357456],["2025-09-05",-0.002896243],
+["2025-09-08",0.002456637],["2025-09-09",0.002311826],["2025-09-10",0.002890760],
+["2025-09-11",0.008310360],["2025-09-12",-0.000334707],["2025-09-15",0.005323952],
+["2025-09-16",-0.001376793],["2025-09-17",-0.001242435],["2025-09-18",0.004672352],
+["2025-09-19",0.004952968],["2025-09-22",0.004731008],["2025-09-23",-0.005443475],
+["2025-09-24",-0.003181633],["2025-09-25",-0.004613497],["2025-09-26",0.005729144],
+["2025-09-29",0.002810366],["2025-09-30",0.003766867],["2025-10-01",0.003407569],
+["2025-10-02",0.001151712],["2025-10-03",-0.000014767],["2025-10-06",0.003586229],
+["2025-10-07",-0.003707492],["2025-10-08",0.005963052],["2025-10-09",-0.002897008],
+["2025-10-10",-0.027027828],["2025-10-13",0.015344075],["2025-10-14",-0.001221655],
+["2025-10-15",0.004439616],["2025-10-16",-0.006810261],["2025-10-17",0.005676300],
+["2025-10-20",0.010400475],["2025-10-21",-0.000014996],["2025-10-22",-0.005198816],
+["2025-10-23",0.005929891],["2025-10-24",0.008172571],["2025-10-27",0.011797712],
+["2025-10-28",0.002655999],["2025-10-29",0.000480298],["2025-10-30",-0.010998145],
+["2025-10-31",0.003280281],["2025-11-03",0.001876687],["2025-11-04",-0.011853540],
+["2025-11-05",0.003465389],["2025-11-06",-0.010729333],["2025-11-07",0.000984508],
+["2025-11-10",0.015604435],["2025-11-11",0.002289150],["2025-11-12",0.000556399],
+["2025-11-13",-0.016594021],["2025-11-14",-0.000163586],["2025-11-17",-0.009316524],
+["2025-11-18",-0.008397461],["2025-11-19",0.003863200],["2025-11-20",-0.015242337],
+["2025-11-21",0.009961223],["2025-11-24",0.014718507],["2025-11-25",0.009405900],
+["2025-11-26",0.006903575],["2025-11-28",0.005458406],["2025-12-01",-0.004565416],
+["2025-12-02",0.001852209],["2025-12-03",0.003462768],["2025-12-04",0.000731056],
+["2025-12-05",0.001899537],["2025-12-08",-0.003004278],["2025-12-09",-0.000863145],
+["2025-12-10",0.006632268],["2025-12-11",0.002326948],["2025-12-12",-0.010752058],
+["2025-12-15",-0.001510798],["2025-12-16",-0.002732298],["2025-12-17",-0.011003620],
+["2025-12-18",0.007551333],["2025-12-19",0.009063445],["2025-12-22",0.006229892],
+["2025-12-23",0.004570455],["2025-12-24",0.003517620],["2025-12-26",-0.000101415],
+["2025-12-29",-0.003563628],["2025-12-30",-0.001221100],["2025-12-31",-0.007408967],
+["2026-01-02",0.001833040],["2026-01-05",0.006660114],["2026-01-06",0.005947183],
+["2026-01-07",-0.003223357],["2026-01-08",-0.000101533],["2026-01-09",0.006613342],
+["2026-01-12",0.001570454],["2026-01-13",-0.001999475],["2026-01-14",-0.004915237],
+["2026-01-15",0.002723214],["2026-01-16",-0.000837874],["2026-01-20",-0.020356786],
+["2026-01-21",0.011541079],["2026-01-22",0.005223230],["2026-01-23",0.000362780],
+["2026-01-26",0.005078147],["2026-01-27",0.003984265],["2026-01-28",-0.000100670],
+["2026-01-29",-0.001984382],["2026-01-30",-0.002982580],["2026-02-02",0.004971362],
+["2026-02-03",-0.008455396],["2026-02-04",-0.004843922],["2026-02-05",-0.012489211],
+["2026-02-06",0.019184712],["2026-02-09",0.004821832],["2026-02-10",-0.002637160],
+["2026-02-11",-0.000231059],["2026-02-12",-0.015448874],["2026-02-13",0.000704485],
+["2026-02-17",0.001613466],["2026-02-18",0.005037759],["2026-02-19",-0.002637434],
+["2026-02-20",0.007231865],["2026-02-23",-0.010211315],["2026-02-24",0.007268453],
+["2026-02-25",0.008438349],["2026-02-26",-0.005554476],["2026-02-27",-0.004801943],
+["2026-03-02",0.000568579],["2026-03-03",-0.008814338],["2026-03-04",0.007055308],
+["2026-03-05",-0.005575547],["2026-03-06",-0.013107135],["2026-03-09",0.008760025],
+["2026-03-10",-0.001607127],["2026-03-11",-0.001255163],["2026-03-12",-0.015184949],
+["2026-03-13",-0.005660110],["2026-03-16",0.010176866],["2026-03-17",0.002630555],
+["2026-03-18",-0.013953645],["2026-03-19",-0.002464340],["2026-03-20",-0.014335776]
+];
+
+// Correlation changes matrix (row=symbol, col=symbol)
+// Ordered: XLB XLC XLE XLF XLI XLK XLP XLRE XLU XLV XLY
+const CORR_SYMS = ['XLB','XLC','XLE','XLF','XLI','XLK','XLP','XLRE','XLU','XLV','XLY'];
+const CORR_DATA = [
+  // XLB
+  [0.0000,-0.005256,-0.099748,-0.065010, 0.077153, 0.066163,-0.006421,-0.023283, 0.002925, 0.117400, 0.020249],
+  // XLC
+  [0.045487, 0.0000, 0.003045, 0.032358, 0.006305,-0.094869, 0.064027,-0.030757, 0.105566, 0.034342, 0.003549],
+  // XLE
+  [0.021966,-0.005425, 0.0000, 0.010380, 0.044250,-0.023226,-0.031112,-0.017774, 0.047601, 0.072628, 0.018101],
+  // XLF
+  [0.029066,-0.031485, 0.043838, 0.0000,-0.035506,-0.089384,-0.061029,-0.033460, 0.058097, 0.077643,-0.021976],
+  // XLI
+  [-0.020396, 0.013081, 0.000607, 0.046547, 0.0000, 0.047457,-0.011961, 0.042699,-0.013552,-0.030655, 0.095616],
+  // XLK
+  [0.053261,-0.089602,-0.022339, 0.060246,-0.059833, 0.0000, 0.033353,-0.034957,-0.000441,-0.104501, 0.088522],
+  // XLP
+  [-0.015455, 0.040191, 0.030692, 0.067894,-0.021665, 0.010191, 0.0000, 0.043627, 0.057718,-0.023869,-0.033211],
+  // XLRE
+  [0.068006,-0.101854, 0.078502,-0.015116,-0.000228,-0.034117,-0.002410, 0.0000, 0.038543, 0.024634, 0.004444],
+  // XLU
+  [-0.072280,-0.042207,-0.017160, 0.022884, 0.003483, 0.049175, 0.023681, 0.002718, 0.0000, 0.020311,-0.021597],
+  // XLV
+  [0.092998, 0.060021, 0.090804,-0.005547, 0.048815,-0.072642, 0.039200,-0.007886,-0.067753, 0.0000,-0.090507],
+  // XLY
+  [-0.095635, 0.018124, 0.028567, 0.048526, 0.037098, 0.073833, 0.035012,-0.006615,-0.003681,-0.014111, 0.0000]
+];
+
+// S&P 500 constituent sample (top ~15 per sector for display)
+const COMPANIES = [
+  // XLK - Info Tech
+  {sym:'AAPL',name:'Apple Inc.',sector:'Information Technology',sub:'Technology Hardware & Equipment',hq:'Cupertino, CA',etf:'XLK'},
+  {sym:'MSFT',name:'Microsoft',sector:'Information Technology',sub:'Systems Software',hq:'Redmond, WA',etf:'XLK'},
+  {sym:'NVDA',name:'NVIDIA',sector:'Information Technology',sub:'Semiconductors',hq:'Santa Clara, CA',etf:'XLK'},
+  {sym:'AVGO',name:'Broadcom',sector:'Information Technology',sub:'Semiconductors',hq:'San Jose, CA',etf:'XLK'},
+  {sym:'ORCL',name:'Oracle',sector:'Information Technology',sub:'Systems Software',hq:'Austin, TX',etf:'XLK'},
+  {sym:'CRM',name:'Salesforce',sector:'Information Technology',sub:'Application Software',hq:'San Francisco, CA',etf:'XLK'},
+  {sym:'ACN',name:'Accenture',sector:'Information Technology',sub:'IT Consulting',hq:'Dublin, Ireland',etf:'XLK'},
+  {sym:'AMD',name:'Advanced Micro Devices',sector:'Information Technology',sub:'Semiconductors',hq:'Santa Clara, CA',etf:'XLK'},
+  {sym:'ADBE',name:'Adobe Inc.',sector:'Information Technology',sub:'Application Software',hq:'San Jose, CA',etf:'XLK'},
+  {sym:'QCOM',name:'Qualcomm',sector:'Information Technology',sub:'Semiconductors',hq:'San Diego, CA',etf:'XLK'},
+  // XLF - Financials
+  {sym:'BRK.B',name:'Berkshire Hathaway',sector:'Financials',sub:'Multi-line Insurance',hq:'Omaha, NE',etf:'XLF'},
+  {sym:'JPM',name:'JPMorgan Chase',sector:'Financials',sub:'Diversified Banks',hq:'New York, NY',etf:'XLF'},
+  {sym:'V',name:'Visa',sector:'Financials',sub:'Transaction & Payment',hq:'Foster City, CA',etf:'XLF'},
+  {sym:'MA',name:'Mastercard',sector:'Financials',sub:'Transaction & Payment',hq:'Purchase, NY',etf:'XLF'},
+  {sym:'BAC',name:'Bank of America',sector:'Financials',sub:'Diversified Banks',hq:'Charlotte, NC',etf:'XLF'},
+  {sym:'WFC',name:'Wells Fargo',sector:'Financials',sub:'Diversified Banks',hq:'San Francisco, CA',etf:'XLF'},
+  {sym:'GS',name:'Goldman Sachs',sector:'Financials',sub:'Investment Banking',hq:'New York, NY',etf:'XLF'},
+  {sym:'MS',name:'Morgan Stanley',sector:'Financials',sub:'Investment Banking',hq:'New York, NY',etf:'XLF'},
+  {sym:'BLK',name:'BlackRock',sector:'Financials',sub:'Asset Management',hq:'New York, NY',etf:'XLF'},
+  {sym:'SCHW',name:'Charles Schwab',sector:'Financials',sub:'Investment Brokerage',hq:'Westlake, TX',etf:'XLF'},
+  // XLV - Health Care
+  {sym:'LLY',name:'Eli Lilly',sector:'Health Care',sub:'Pharmaceuticals',hq:'Indianapolis, IN',etf:'XLV'},
+  {sym:'UNH',name:'UnitedHealth',sector:'Health Care',sub:'Managed Health Care',hq:'Minnetonka, MN',etf:'XLV'},
+  {sym:'JNJ',name:'Johnson & Johnson',sector:'Health Care',sub:'Pharmaceuticals',hq:'New Brunswick, NJ',etf:'XLV'},
+  {sym:'ABBV',name:'AbbVie',sector:'Health Care',sub:'Biotechnology',hq:'North Chicago, IL',etf:'XLV'},
+  {sym:'MRK',name:'Merck',sector:'Health Care',sub:'Pharmaceuticals',hq:'Rahway, NJ',etf:'XLV'},
+  {sym:'ABT',name:'Abbott Labs',sector:'Health Care',sub:'Health Care Equipment',hq:'North Chicago, IL',etf:'XLV'},
+  {sym:'TMO',name:'Thermo Fisher',sector:'Health Care',sub:'Life Sciences Tools',hq:'Waltham, MA',etf:'XLV'},
+  {sym:'DHR',name:'Danaher',sector:'Health Care',sub:'Life Sciences Tools',hq:'Washington, DC',etf:'XLV'},
+  {sym:'ISRG',name:'Intuitive Surgical',sector:'Health Care',sub:'Health Care Equipment',hq:'Sunnyvale, CA',etf:'XLV'},
+  {sym:'BMY',name:'Bristol-Myers Squibb',sector:'Health Care',sub:'Pharmaceuticals',hq:'New York, NY',etf:'XLV'},
+  // XLY - Consumer Disc.
+  {sym:'AMZN',name:'Amazon',sector:'Consumer Discretionary',sub:'Internet Retail',hq:'Seattle, WA',etf:'XLY'},
+  {sym:'TSLA',name:'Tesla',sector:'Consumer Discretionary',sub:'Automobile Manufacturers',hq:'Austin, TX',etf:'XLY'},
+  {sym:'HD',name:'Home Depot',sector:'Consumer Discretionary',sub:'Home Improvement Retail',hq:'Atlanta, GA',etf:'XLY'},
+  {sym:'MCD',name:'McDonald\'s',sector:'Consumer Discretionary',sub:'Restaurants',hq:'Chicago, IL',etf:'XLY'},
+  {sym:'NKE',name:'Nike',sector:'Consumer Discretionary',sub:'Footwear',hq:'Beaverton, OR',etf:'XLY'},
+  {sym:'LOW',name:'Lowe\'s',sector:'Consumer Discretionary',sub:'Home Improvement Retail',hq:'Mooresville, NC',etf:'XLY'},
+  {sym:'SBUX',name:'Starbucks',sector:'Consumer Discretionary',sub:'Restaurants',hq:'Seattle, WA',etf:'XLY'},
+  {sym:'TJX',name:'TJX Companies',sector:'Consumer Discretionary',sub:'Apparel Retail',hq:'Framingham, MA',etf:'XLY'},
+  {sym:'BKNG',name:'Booking Holdings',sector:'Consumer Discretionary',sub:'Internet & Direct Mktg',hq:'Norwalk, CT',etf:'XLY'},
+  {sym:'ABNB',name:'Airbnb',sector:'Consumer Discretionary',sub:'Hotels, Resorts & Cruises',hq:'San Francisco, CA',etf:'XLY'},
+  // XLC - Communication Services
+  {sym:'META',name:'Meta Platforms',sector:'Communication Services',sub:'Interactive Media',hq:'Menlo Park, CA',etf:'XLC'},
+  {sym:'GOOGL',name:'Alphabet (A)',sector:'Communication Services',sub:'Interactive Media',hq:'Mountain View, CA',etf:'XLC'},
+  {sym:'GOOG',name:'Alphabet (C)',sector:'Communication Services',sub:'Interactive Media',hq:'Mountain View, CA',etf:'XLC'},
+  {sym:'NFLX',name:'Netflix',sector:'Communication Services',sub:'Movies & Entertainment',hq:'Los Gatos, CA',etf:'XLC'},
+  {sym:'DIS',name:'Walt Disney',sector:'Communication Services',sub:'Movies & Entertainment',hq:'Burbank, CA',etf:'XLC'},
+  {sym:'T',name:'AT&T',sector:'Communication Services',sub:'Integrated Telecom',hq:'Dallas, TX',etf:'XLC'},
+  {sym:'VZ',name:'Verizon',sector:'Communication Services',sub:'Integrated Telecom',hq:'New York, NY',etf:'XLC'},
+  {sym:'CMCSA',name:'Comcast',sector:'Communication Services',sub:'Cable & Satellite',hq:'Philadelphia, PA',etf:'XLC'},
+  {sym:'TMUS',name:'T-Mobile US',sector:'Communication Services',sub:'Wireless Telecom',hq:'Bellevue, WA',etf:'XLC'},
+  {sym:'EA',name:'Electronic Arts',sector:'Communication Services',sub:'Interactive Entertainment',hq:'Redwood City, CA',etf:'XLC'},
+  // XLE - Energy
+  {sym:'XOM',name:'ExxonMobil',sector:'Energy',sub:'Integrated Oil & Gas',hq:'Spring, TX',etf:'XLE'},
+  {sym:'CVX',name:'Chevron',sector:'Energy',sub:'Integrated Oil & Gas',hq:'San Ramon, CA',etf:'XLE'},
+  {sym:'COP',name:'ConocoPhillips',sector:'Energy',sub:'Oil & Gas Exploration',hq:'Houston, TX',etf:'XLE'},
+  {sym:'EOG',name:'EOG Resources',sector:'Energy',sub:'Oil & Gas Exploration',hq:'Houston, TX',etf:'XLE'},
+  {sym:'SLB',name:'Schlumberger',sector:'Energy',sub:'Oil & Gas Equipment',hq:'Houston, TX',etf:'XLE'},
+  {sym:'PSX',name:'Phillips 66',sector:'Energy',sub:'Oil & Gas Refining',hq:'Houston, TX',etf:'XLE'},
+  {sym:'MPC',name:'Marathon Petroleum',sector:'Energy',sub:'Oil & Gas Refining',hq:'Findlay, OH',etf:'XLE'},
+  {sym:'OXY',name:'Occidental Petroleum',sector:'Energy',sub:'Oil & Gas Exploration',hq:'Houston, TX',etf:'XLE'},
+  {sym:'PXD',name:'Pioneer Natural',sector:'Energy',sub:'Oil & Gas Exploration',hq:'Irving, TX',etf:'XLE'},
+  {sym:'VLO',name:'Valero Energy',sector:'Energy',sub:'Oil & Gas Refining',hq:'San Antonio, TX',etf:'XLE'},
+  // XLI - Industrials
+  {sym:'GE',name:'GE Aerospace',sector:'Industrials',sub:'Aerospace & Defense',hq:'Cincinnati, OH',etf:'XLI'},
+  {sym:'CAT',name:'Caterpillar',sector:'Industrials',sub:'Construction Machinery',hq:'Irving, TX',etf:'XLI'},
+  {sym:'HON',name:'Honeywell',sector:'Industrials',sub:'Industrial Conglomerates',hq:'Charlotte, NC',etf:'XLI'},
+  {sym:'UNP',name:'Union Pacific',sector:'Industrials',sub:'Railroads',hq:'Omaha, NE',etf:'XLI'},
+  {sym:'RTX',name:'RTX Corporation',sector:'Industrials',sub:'Aerospace & Defense',hq:'Arlington, VA',etf:'XLI'},
+  {sym:'UPS',name:'UPS',sector:'Industrials',sub:'Air Freight & Logistics',hq:'Atlanta, GA',etf:'XLI'},
+  {sym:'DE',name:'Deere & Co.',sector:'Industrials',sub:'Agricultural Machinery',hq:'Moline, IL',etf:'XLI'},
+  {sym:'BA',name:'Boeing',sector:'Industrials',sub:'Aerospace & Defense',hq:'Arlington, VA',etf:'XLI'},
+  {sym:'LMT',name:'Lockheed Martin',sector:'Industrials',sub:'Aerospace & Defense',hq:'Bethesda, MD',etf:'XLI'},
+  {sym:'FDX',name:'FedEx',sector:'Industrials',sub:'Air Freight & Logistics',hq:'Memphis, TN',etf:'XLI'},
+  // XLP - Consumer Staples
+  {sym:'WMT',name:'Walmart',sector:'Consumer Staples',sub:'Hypermarkets',hq:'Bentonville, AR',etf:'XLP'},
+  {sym:'PG',name:'Procter & Gamble',sector:'Consumer Staples',sub:'Personal Products',hq:'Cincinnati, OH',etf:'XLP'},
+  {sym:'KO',name:'Coca-Cola',sector:'Consumer Staples',sub:'Soft Drinks',hq:'Atlanta, GA',etf:'XLP'},
+  {sym:'COST',name:'Costco',sector:'Consumer Staples',sub:'Hypermarkets',hq:'Issaquah, WA',etf:'XLP'},
+  {sym:'PEP',name:'PepsiCo',sector:'Consumer Staples',sub:'Soft Drinks',hq:'Harrison, NY',etf:'XLP'},
+  {sym:'PM',name:'Philip Morris',sector:'Consumer Staples',sub:'Tobacco',hq:'Stamford, CT',etf:'XLP'},
+  {sym:'MDLZ',name:'Mondelēz',sector:'Consumer Staples',sub:'Packaged Foods',hq:'Chicago, IL',etf:'XLP'},
+  {sym:'CL',name:'Colgate-Palmolive',sector:'Consumer Staples',sub:'Household Products',hq:'New York, NY',etf:'XLP'},
+  {sym:'GIS',name:'General Mills',sector:'Consumer Staples',sub:'Packaged Foods',hq:'Golden Valley, MN',etf:'XLP'},
+  {sym:'KMB',name:'Kimberly-Clark',sector:'Consumer Staples',sub:'Household Products',hq:'Irving, TX',etf:'XLP'},
+  // XLB - Materials
+  {sym:'LIN',name:'Linde',sector:'Materials',sub:'Industrial Gases',hq:'Guildford, UK',etf:'XLB'},
+  {sym:'APD',name:'Air Products',sector:'Materials',sub:'Industrial Gases',hq:'Allentown, PA',etf:'XLB'},
+  {sym:'SHW',name:'Sherwin-Williams',sector:'Materials',sub:'Specialty Chemicals',hq:'Cleveland, OH',etf:'XLB'},
+  {sym:'FCX',name:'Freeport-McMoRan',sector:'Materials',sub:'Copper',hq:'Phoenix, AZ',etf:'XLB'},
+  {sym:'NEM',name:'Newmont',sector:'Materials',sub:'Gold',hq:'Denver, CO',etf:'XLB'},
+  {sym:'ECL',name:'Ecolab',sector:'Materials',sub:'Specialty Chemicals',hq:'Saint Paul, MN',etf:'XLB'},
+  {sym:'NUE',name:'Nucor',sector:'Materials',sub:'Steel',hq:'Charlotte, NC',etf:'XLB'},
+  {sym:'VMC',name:'Vulcan Materials',sector:'Materials',sub:'Construction Materials',hq:'Birmingham, AL',etf:'XLB'},
+  {sym:'ALB',name:'Albemarle',sector:'Materials',sub:'Specialty Chemicals',hq:'Charlotte, NC',etf:'XLB'},
+  {sym:'CF',name:'CF Industries',sector:'Materials',sub:'Fertilizers',hq:'Deerfield, IL',etf:'XLB'},
+  // XLU - Utilities
+  {sym:'NEE',name:'NextEra Energy',sector:'Utilities',sub:'Electric Utilities',hq:'Juno Beach, FL',etf:'XLU'},
+  {sym:'DUK',name:'Duke Energy',sector:'Utilities',sub:'Electric Utilities',hq:'Charlotte, NC',etf:'XLU'},
+  {sym:'SO',name:'Southern Company',sector:'Utilities',sub:'Electric Utilities',hq:'Atlanta, GA',etf:'XLU'},
+  {sym:'D',name:'Dominion Energy',sector:'Utilities',sub:'Electric Utilities',hq:'Richmond, VA',etf:'XLU'},
+  {sym:'AEP',name:'Am. Electric Power',sector:'Utilities',sub:'Electric Utilities',hq:'Columbus, OH',etf:'XLU'},
+  {sym:'EXC',name:'Exelon',sector:'Utilities',sub:'Electric Utilities',hq:'Chicago, IL',etf:'XLU'},
+  {sym:'XEL',name:'Xcel Energy',sector:'Utilities',sub:'Multi-Utilities',hq:'Minneapolis, MN',etf:'XLU'},
+  {sym:'ED',name:'Consolidated Edison',sector:'Utilities',sub:'Electric Utilities',hq:'New York, NY',etf:'XLU'},
+  {sym:'WEC',name:'WEC Energy',sector:'Utilities',sub:'Multi-Utilities',hq:'Milwaukee, WI',etf:'XLU'},
+  {sym:'ES',name:'Eversource Energy',sector:'Utilities',sub:'Electric Utilities',hq:'Hartford, CT',etf:'XLU'},
+  // XLRE - Real Estate
+  {sym:'PLD',name:'Prologis',sector:'Real Estate',sub:'Industrial REITs',hq:'San Francisco, CA',etf:'XLRE'},
+  {sym:'AMT',name:'American Tower',sector:'Real Estate',sub:'Telecom Tower REITs',hq:'Boston, MA',etf:'XLRE'},
+  {sym:'EQIX',name:'Equinix',sector:'Real Estate',sub:'Data Center REITs',hq:'Redwood City, CA',etf:'XLRE'},
+  {sym:'CCI',name:'Crown Castle',sector:'Real Estate',sub:'Telecom Tower REITs',hq:'Houston, TX',etf:'XLRE'},
+  {sym:'SPG',name:'Simon Property',sector:'Real Estate',sub:'Retail REITs',hq:'Indianapolis, IN',etf:'XLRE'},
+  {sym:'O',name:'Realty Income',sector:'Real Estate',sub:'Retail REITs',hq:'San Diego, CA',etf:'XLRE'},
+  {sym:'WELL',name:'Welltower',sector:'Real Estate',sub:'Health Care REITs',hq:'Toledo, OH',etf:'XLRE'},
+  {sym:'DLR',name:'Digital Realty',sector:'Real Estate',sub:'Data Center REITs',hq:'Austin, TX',etf:'XLRE'},
+  {sym:'PSA',name:'Public Storage',sector:'Real Estate',sub:'Self-Storage REITs',hq:'Glendale, CA',etf:'XLRE'},
+  {sym:'VICI',name:'VICI Properties',sector:'Real Estate',sub:'Gaming & Leisure',hq:'New York, NY',etf:'XLRE'},
+];
+
+/* ─────────────────────────────────── HELPERS ──────────────────────────────── */
+function fmt(v, digits=2) {
+  const s = (v>=0?'+':'')+( v*100).toFixed(digits)+'%';
+  return s;
+}
+function fmtCorr(v) {
+  return (v>=0?'+':'')+v.toFixed(4);
+}
+function colorClass(v) { return v>0?'pos':v<0?'neg':''; }
+
+/* ─────────────────────────────────── SPY LINE CHART ───────────────────────── */
+(function buildSpyLine(){
+  const labels = [];
+  const cumData = [];
+  let cum = 100;
+  for(const [d,r] of DAILY_RAW){
+    cum *= (1+r);
+    labels.push(d);
+    cumData.push(+cum.toFixed(4));
+  }
+  // Color segments: green above 100, red below
+  const startVal = 100;
+  const ctx = document.getElementById('spyLine').getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,240);
+  grad.addColorStop(0,'rgba(0,200,150,0.18)');
+  grad.addColorStop(1,'rgba(0,200,150,0.0)');
+
+  new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data: cumData,
+        borderColor: '#4a90e2',
+        backgroundColor: grad,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.2,
+        fill: true,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          backgroundColor:'#1a2540',
+          borderColor:'#2a3d5e',
+          borderWidth:1,
+          titleColor:'#8892b0',
+          bodyColor:'#c8d6f0',
+          callbacks:{
+            label:(ctx)=>`SPY Index: ${ctx.parsed.y.toFixed(2)} (base 100)`,
+            title:(ctx)=>`Date: ${ctx.at(0).label}`
+          }
+        },
+        annotation:{} // placeholder
+      },
+      scales:{
+        x:{
+          ticks:{
+            maxTicksLimit:8,
+            color:'#5e7094',
+            font:{size:9}
+          },
+          grid:{color:'rgba(30,45,71,0.5)'},
+        },
+        y:{
+          ticks:{
+            color:'#5e7094',
+            font:{size:9},
+            callback: v=>'$'+v.toFixed(0)
+          },
+          grid:{color:'rgba(30,45,71,0.5)'},
+        }
+      }
+    }
+  });
+})();
+
+/* ─────────────────────────────────── SECTOR BAR CHART ─────────────────────── */
+(function buildSectorBars(){
+  // Sort sectors by YTD return descending
+  const sorted = Object.entries(SECTOR_YTD).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(([sym])=>SECTOR_META[sym].shortName+' ('+sym+')');
+  const vals   = sorted.map(([,v])=>+(v*100).toFixed(2));
+  const colors = sorted.map(([,v])=>v>=0?'rgba(0,200,150,0.75)':'rgba(255,68,102,0.75)');
+  const borders= sorted.map(([,v])=>v>=0?'#00c896':'#ff4466');
+
+  const ctx = document.getElementById('sectorBars').getContext('2d');
+  new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data: vals,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1a2540',
+          borderColor:'#2a3d5e',
+          borderWidth:1,
+          titleColor:'#8892b0',
+          bodyColor:'#c8d6f0',
+          callbacks:{label:(ctx)=>`YTD Return: ${ctx.parsed.x>=0?'+':''}${ctx.parsed.x.toFixed(2)}%`}
+        }
+      },
+      scales:{
+        x:{
+          ticks:{color:'#5e7094',font:{size:9},callback:v=>v+'%'},
+          grid:{color:'rgba(30,45,71,0.5)'},
+          title:{display:true,text:'Year-to-Date Return (%)',color:'#5e7094',font:{size:9}}
+        },
+        y:{
+          ticks:{color:'#c8d6f0',font:{size:10}},
+          grid:{color:'rgba(30,45,71,0.3)'},
+        }
+      }
+    }
+  });
+})();
+
+/* ─────────────────────────────────── SECTOR RANK TABLE ────────────────────── */
+(function buildSectorRankTable(){
+  const sorted = Object.entries(SECTOR_YTD).sort((a,b)=>b[1]-a[1]);
+  const tbody = document.getElementById('sectorRankBody');
+  const maxAbs = Math.max(...Object.values(SECTOR_YTD).map(Math.abs));
+  sorted.forEach(([sym,ret],i)=>{
+    const m = SECTOR_META[sym];
+    const isPos = ret>=0;
+    const barW = Math.round(Math.abs(ret)/maxAbs*80);
+    const tr = document.createElement('tr');
+    tr.innerHTML=`
+      <td class="rank">${i+1}</td>
+      <td class="sym">${sym}</td>
+      <td>${m.shortName}</td>
+      <td style="text-align:right;font-weight:700" class="${colorClass(ret)}">${fmt(ret)}</td>
+      <td>
+        <div class="inline-bar-wrap">
+          <div class="inline-bar" style="width:${barW}px;background:${isPos?'var(--green)':'var(--red)'}"></div>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+})();
+
+/* ─────────────────────────────────── COMPANY TABLE ────────────────────────── */
+(function buildCompanyTable(){
+  const SECTOR_ORDER = ['XLK','XLF','XLV','XLC','XLE','XLI','XLP','XLRE','XLU','XLB','XLY'];
+  let activeSector = 'ALL';
+  let showAll = false;
+  const PAGE = 20;
+
+  const tabs = document.getElementById('sectorTabs');
+  // All tab
+  const allBtn = makeTab('All Sectors','ALL');
+  tabs.appendChild(allBtn);
+  SECTOR_ORDER.forEach(sym=>{
+    tabs.appendChild(makeTab(SECTOR_META[sym].shortName, sym));
+  });
+
+  function makeTab(label, val){
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.dataset.val = val;
+    b.style.cssText=`background:${val==='ALL'?'var(--blue)':'var(--panel2)'};
+      border:1px solid var(--border);color:${val==='ALL'?'#fff':'var(--muted)'};
+      padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;
+      letter-spacing:.5px;transition:all .15s`;
+    b.onclick=()=>{
+      activeSector=val; showAll=false;
+      document.querySelectorAll('#sectorTabs button').forEach(x=>{
+        x.style.background='var(--panel2)'; x.style.color='var(--muted)';
+      });
+      b.style.background='var(--blue)'; b.style.color='#fff';
+      renderTable();
+    };
+    return b;
+  }
+
+  function renderTable(){
+    const filtered = activeSector==='ALL'
+      ? COMPANIES
+      : COMPANIES.filter(c=>c.etf===activeSector);
+    const shown = showAll ? filtered : filtered.slice(0,PAGE);
+    const tbody = document.getElementById('companyBody');
+    tbody.innerHTML='';
+    shown.forEach((c,i)=>{
+      const sectorYtd = SECTOR_YTD[c.etf];
+      const isPos = sectorYtd>=0;
+      const tr = document.createElement('tr');
+      tr.innerHTML=`
+        <td class="rank">${i+1}</td>
+        <td class="sym">${c.sym}</td>
+        <td style="color:var(--head);font-weight:600">${c.name}</td>
+        <td><span class="sector-badge">${SECTOR_META[c.etf].shortName}</span></td>
+        <td style="color:var(--muted);font-size:11px">${c.sub}</td>
+        <td style="color:var(--muted);font-size:11px">${c.hq}</td>
+        <td style="color:var(--muted);font-size:11px">${c.etf}</td>
+        <td style="text-align:right;font-weight:700" class="${isPos?'pos':'neg'}">
+          ${fmt(sectorYtd)}<br>
+          <span style="font-size:9px;font-weight:400;color:var(--muted)">(sector ETF)</span>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    const moreBtn = document.getElementById('showMoreBtn');
+    const moreWrap = document.getElementById('showMoreWrap');
+    if(filtered.length <= PAGE || showAll){
+      moreWrap.style.display='none';
+    } else {
+      moreWrap.style.display='block';
+      moreBtn.textContent=`Show more (${filtered.length - PAGE} remaining)`;
+    }
+  }
+
+  document.getElementById('showMoreBtn').onclick=()=>{
+    showAll=true; renderTable();
+  };
+
+  renderTable();
+})();
+
+/* ─────────────────────────────────── CORRELATION HEATMAP ──────────────────── */
+(function buildCorrHeatmap(){
+  const symbols = CORR_SYMS;
+  const shortNames = symbols.map(s=>SECTOR_META[s].shortName);
+  const data = CORR_DATA;
+
+  // Find color for a delta value
+  function cellColor(v){
+    if(v===0) return {bg:'#1a2035',txt:'#5e7094'};
+    const abs = Math.min(Math.abs(v)/0.12, 1);
+    if(v>0){
+      // green shades
+      const r = Math.round(13 + (0-13)*abs);
+      const g = Math.round(25 + (200-25)*abs);
+      const b = Math.round(40 + (150-40)*abs);
+      const brightness = 0.299*r + 0.587*g + 0.114*b;
+      return {bg:`rgb(${r},${g},${b})`,txt: brightness>80?'#0a0e1a':'#e8f0ff'};
+    } else {
+      const r = Math.round(13 + (255-13)*abs);
+      const g = Math.round(25 + (40-25)*abs);
+      const b = Math.round(40 + (70-40)*abs);
+      const brightness = 0.299*r + 0.587*g + 0.114*b;
+      return {bg:`rgb(${r},${g},${b})`,txt: brightness>80?'#0a0e1a':'#e8f0ff'};
+    }
+  }
+
+  const table = document.getElementById('corrChangeTable');
+  // Header row
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  hr.innerHTML='<th style="text-align:right;padding-right:10px;font-size:9px">→ Col<br>Row ↓</th>';
+  symbols.forEach((s,i)=>{
+    hr.innerHTML+=`<th><div class="tooltip">${s}<span class="tt">${shortNames[i]}</span></div></th>`;
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  // Data rows
+  const tbody = document.createElement('tbody');
+  data.forEach((row,ri)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML=`<td class="row-header"><div class="tooltip">${symbols[ri]}<span class="tt">${shortNames[ri]}</span></div></td>`;
+    row.forEach((v,ci)=>{
+      if(ri===ci){
+        tr.innerHTML+=`<td class="diag">—</td>`;
+      } else {
+        const {bg,txt}=cellColor(v);
+        const display = v===0?'0.00':fmtCorr(v);
+        tr.innerHTML+=`<td style="background:${bg};color:${txt};font-weight:600"
+          title="${symbols[ri]} vs ${symbols[ci]}: ${fmtCorr(v)}">${display}</td>`;
+      }
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+})();
+
+/* ─────────────────────────────────── CORRELATION INSIGHTS ─────────────────── */
+(function buildCorrInsights(){
+  const syms = CORR_SYMS;
+  const data = CORR_DATA;
+
+  // Build all pairs (upper triangle)
+  const pairs = [];
+  for(let i=0;i<syms.length;i++){
+    for(let j=i+1;j<syms.length;j++){
+      // Average upper and lower triangle for symmetric representation
+      const avg = (data[i][j] + data[j][i]) / 2;
+      pairs.push({a:syms[i], b:syms[j], delta:avg});
+    }
+  }
+  pairs.sort((a,b)=>b.delta-a.delta);
+
+  // Top 5 increases
+  const topPos = pairs.slice(0,5);
+  // Top 5 decreases
+  const topNeg = pairs.slice(-5).reverse();
+
+  function fillTable(tableId, rows){
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    rows.forEach((p,i)=>{
+      const tr = document.createElement('tr');
+      const isPos = p.delta>=0;
+      tr.innerHTML=`
+        <td class="rank">${i+1}</td>
+        <td><span class="sym">${p.a}</span> <span style="color:var(--muted);font-size:9px">${SECTOR_META[p.a].shortName}</span></td>
+        <td><span class="sym">${p.b}</span> <span style="color:var(--muted);font-size:9px">${SECTOR_META[p.b].shortName}</span></td>
+        <td style="text-align:right;font-weight:700" class="${isPos?'pos':'neg'}">${fmtCorr(p.delta)}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  fillTable('corrTopPos', topPos);
+  fillTable('corrTopNeg', topNeg);
+
+  // Narrative
+  const strongest = topPos[0];
+  const weakest   = topNeg[0];
+  document.getElementById('corrInsights').innerHTML=`
+    <p>Over the past year, <strong class="pos">${strongest.a} (${SECTOR_META[strongest.a].shortName}) and ${strongest.b} (${SECTOR_META[strongest.b].shortName})</strong>
+    saw the largest increase in co-movement (<strong class="pos">${fmtCorr(strongest.delta)}</strong>),
+    suggesting these sectors are increasingly driven by shared macro factors.</p>
+    <br>
+    <p>Conversely, <strong class="neg">${weakest.a} (${SECTOR_META[weakest.a].shortName}) and ${weakest.b} (${SECTOR_META[weakest.b].shortName})</strong>
+    diverged most significantly (<strong class="neg">${fmtCorr(weakest.delta)}</strong>),
+    indicating structural divergence in their return drivers — useful for portfolio diversification.</p>
+    <br>
+    <p style="color:var(--muted);font-size:11px;">
+      Higher correlations reduce diversification benefit; lower correlations present
+      opportunities for sector rotation strategies. The table below highlights
+      the most meaningful shifts.
+    </p>`;
+})();
+
+</script>
+</body>
+</html>
